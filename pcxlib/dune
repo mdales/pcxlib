@@ -1,0 +1,7 @@
+(env
+  (dev
+    (flags (:standard -w -69))))
+
+(library
+ (public_name pcxlib)
+ (name pcxlib))
