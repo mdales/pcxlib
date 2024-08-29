@@ -1,0 +1,4 @@
+(executable
+ (public_name pcxinfo)
+ (name main)
+ (libraries pcxinfo pcxlib))

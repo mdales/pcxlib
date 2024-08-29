@@ -6,7 +6,7 @@ let test_example_file _ =
   match img with
   | Result.Error s -> assert_failure (Printf.sprintf "Got unexecpted error: %s" s)
   | Result.Ok img -> (
-    assert_equal (Pcx.dimensions img) (1023, 767);
+    assert_equal (Pcx.dimensions img) (1024, 768);
     assert_equal (Pcx.encoding img) RLE;
     assert_equal (Pcx.depth img) 8;
     assert_equal (Pcx.planes img) 1;

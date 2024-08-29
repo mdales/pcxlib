@@ -68,7 +68,7 @@ let load filename =
   )
 
 let dimensions t =
-  ((t.header.max_x - t.header.min_x), (t.header.max_y - t.header.min_y))
+  ((1 + t.header.max_x - t.header.min_x), (1 + t.header.max_y - t.header.min_y))
 
 let encoding t =
   match t.header.encoding with
