@@ -22,13 +22,19 @@ type header = {
 
 type t = {
   header : header;
-  palette : int list;
+  data : int array;
+  palette : (int * int * int) array option;
 }
 
 type encoding_t =
 | None
 | RLE
 | Unknown
+
+type palette_mode_t =
+| Unknown
+| Colour
+| Grayscale
 
 let (>>=) = Result.bind
 
@@ -58,12 +64,53 @@ let read_header ic =
     with
     | Sys_error(reason) -> Result.error reason
 
+let read_uncompressed_data _ic _header =
+  Result.error "Uncompressed data read not implemented yet"
+
+let read_rle_data ic header =
+  match header.bits_per_plane, header.planes with
+  | 8, 1 -> (
+    let width = (header.max_x + 1) - header.min_x
+    and height = (header.max_y + 1) - header.min_y in
+
+    In_channel.seek ic 128L;
+
+    let result = Array.init (width * height) (fun _ -> 0) in
+
+    let rec loop write_idx =
+      let v = input_char ic in
+
+      let data_val, rep_count = match ((int_of_char v) land 0xC0) with
+      | 0xC0 -> input_char ic, ((int_of_char v) land 0x3F)
+      | _ -> v, 1
+      in
+
+      for i = 0 to (rep_count - 1) do
+        result.(i + write_idx) <- int_of_char data_val
+      done;
+
+      match ((write_idx + rep_count) >= width * height) with
+      | true -> ()
+      | false -> loop (write_idx + rep_count)
+    in loop 0;
+
+    Result.ok result
+  )
+  | d, p -> Result.error (Printf.sprintf "RLE decoding for depth %d and planes %d not yet implemeted" d p)
+
+
+let read_data ic header =
+  match header.encoding with
+  | 0 -> read_uncompressed_data ic header
+  | 1 -> read_rle_data ic header
+  | _ -> Result.error "Unknown encoding type"
 
 let load filename =
   In_channel.with_open_bin filename (fun ic ->
     read_header ic >>= fun header ->
+    read_data ic header >>= fun data ->
     match header.fixed with
-    | 0xA -> Result.ok {header ; palette = []}
+    | 0xA -> Result.ok {header ; data; palette = None}
     | _ -> Result.error (Printf.sprintf "unexpected magic number 0x%x" header.fixed)
   )
 
@@ -81,3 +128,12 @@ let depth t =
 
 let planes t =
   t.header.planes
+
+let dpi t =
+  (t.header.horizontal_dpi, t.header.vertical_dpi)
+
+let palette_mode t =
+  match t.header.palette_mode with
+  | 1 -> Colour
+  | 2 -> Grayscale
+  | _ -> Unknown
