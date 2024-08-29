@@ -23,3 +23,5 @@ val planes: t -> int
 val dpi: t -> (int * int)
 
 val palette_mode: t -> palette_mode_t
+
+val read_pixel: t -> int -> int -> int

@@ -98,19 +98,36 @@ let read_rle_data ic header =
   )
   | d, p -> Result.error (Printf.sprintf "RLE decoding for depth %d and planes %d not yet implemeted" d p)
 
-
 let read_data ic header =
   match header.encoding with
   | 0 -> read_uncompressed_data ic header
   | 1 -> read_rle_data ic header
   | _ -> Result.error "Unknown encoding type"
 
+let read_palette ic header : ((int * int * int) array, string) result =
+match header.bits_per_plane, header.planes with
+  | 8, 1 -> (
+    let filelength = In_channel.length ic in
+    let palette_offset = Int64.sub filelength 768L in
+    In_channel.seek ic palette_offset;
+    Result.ok (Array.init 256 (fun _ ->
+      (
+        int_of_char (input_char ic),
+        int_of_char (input_char ic),
+        int_of_char (input_char ic)
+      )
+    )
+  ))
+  | d, p -> Result.error (Printf.sprintf "palette decoding for depth %d and planes %d not yet implemeted" d p)
+
+
 let load filename =
   In_channel.with_open_bin filename (fun ic ->
     read_header ic >>= fun header ->
     read_data ic header >>= fun data ->
+    read_palette ic header >>= fun palette ->
     match header.fixed with
-    | 0xA -> Result.ok {header ; data; palette = None}
+    | 0xA -> Result.ok {header ; data; palette = Some palette }
     | _ -> Result.error (Printf.sprintf "unexpected magic number 0x%x" header.fixed)
   )
 
@@ -137,3 +154,6 @@ let palette_mode t =
   | 1 -> Colour
   | 2 -> Grayscale
   | _ -> Unknown
+
+let read_pixel t x y =
+  t.data.((y * t.header.scan_line_length) + x)
