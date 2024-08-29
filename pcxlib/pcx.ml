@@ -157,3 +157,6 @@ let palette_mode t =
 
 let read_pixel t x y =
   t.data.((y * t.header.scan_line_length) + x)
+
+let palette t =
+  t.palette
