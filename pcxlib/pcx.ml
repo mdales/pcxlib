@@ -96,6 +96,37 @@ let read_rle_data ic header =
 
     Result.ok result
   )
+  | 1, 1 -> (
+    let width = (header.max_x + 1) - header.min_x
+    and height = (header.max_y + 1) - header.min_y in
+
+    In_channel.seek ic 128L;
+
+    let result = Array.init (width * height) (fun _ -> 0) in
+
+    let rec loop write_idx =
+      let v = input_char ic in
+
+      let data_val, rep_count = match ((int_of_char v) land 0xC0) with
+      | 0xC0 -> input_char ic, ((int_of_char v) land 0x3F)
+      | _ -> v, 1
+      in
+
+      let v = int_of_char data_val in
+      for i = 0 to (rep_count - 1) do
+        for b = 0 to 7 do
+          result.(write_idx + (i * 8) + b) <- ((v lsl b) land 0x80) lsr 0x7
+        done
+      done;
+
+      let total = write_idx + (rep_count * 8) in
+      match (total >= width * height) with
+      | true -> ()
+      | false -> loop total
+    in loop 0;
+
+    Result.ok result
+  )
   | d, p -> Result.error (Printf.sprintf "RLE decoding for depth %d and planes %d not yet implemeted" d p)
 
 let read_data ic header =
@@ -118,6 +149,7 @@ match header.bits_per_plane, header.planes with
       )
     )
   ))
+  | 1, 1 -> Result.ok [|(255, 255, 255); (0, 0, 0)  |]
   | d, p -> Result.error (Printf.sprintf "palette decoding for depth %d and planes %d not yet implemeted" d p)
 
 
@@ -156,7 +188,7 @@ let palette_mode t =
   | _ -> Unknown
 
 let read_pixel t x y =
-  t.data.((y * t.header.scan_line_length) + x)
+  t.data.((y * t.header.scan_line_length * (8 / t.header.bits_per_plane)) + x)
 
 let palette t =
   t.palette
